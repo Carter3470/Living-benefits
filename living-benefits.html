@@ -109,7 +109,7 @@ span.gold{color:var(--gold-light);}span.accent{color:var(--gold);font-weight:600
 <div id="progress"></div>
 <div id="narration-bar"></div>
 
-<audio id="player" preload="none" playsinline></audio>
+<audio id="player" preload="auto" playsinline webkit-playsinline></audio>
 
 <div id="voice-ctrl">
   <button class="vc-btn" id="btnPlay">▶</button>
@@ -348,10 +348,8 @@ function stopWave(){
   waveSpans.forEach(function(s){s.style.height='6px';s.style.opacity='0.35';});
 }
 
-// Single continuous audio file - most reliable for Safari
+// Audio player
 var player = document.getElementById('player');
-var slideStarts = [0, 18.52, 48.67, 75.47, 104.07, 127.19, 165.64, 189.7, 221.34, 245.21];
-var slideDurations = [18.521, 30.145, 26.802, 28.604, 23.118, 38.452, 24.059, 31.634, 23.876, 33.802];
 
 player.addEventListener('play',function(){
   startWave();
@@ -364,67 +362,56 @@ player.addEventListener('pause',function(){
 player.addEventListener('ended',function(){
   stopWave();
   document.getElementById('btnPlay').classList.remove('active');
-  chainStarted=false;
-  // Return to slide 1
-  setTimeout(function(){
+  if(current < total-1){
     slides[current].classList.remove('active');
-    current=0;
-    slides[current].classList.add('active');
-    updateCounter();
-  },3000);
-});
-
-// Advance slide based on playback position
-player.addEventListener('timeupdate',function(){
-  if(!chainStarted) return;
-  var t = player.currentTime;
-  // Find which slide we should be on
-  var newSlide = 0;
-  for(var i=slideStarts.length-1;i>=0;i--){
-    if(t >= slideStarts[i]){ newSlide=i; break; }
-  }
-  if(newSlide !== current){
-    slides[current].classList.remove('active');
-    current = newSlide;
+    current++;
     slides[current].classList.add('active');
     updateCounter();
     if(current===1) animateCounters();
+    // Small delay then play next - keeps gesture chain alive
+    setTimeout(function(){
+      player.src='Slide '+(current+1)+'.mp3?v=1779852705';
+      player.load();
+      player.play().catch(function(e){console.warn(e);});
+    }, 50);
+  } else {
+    setTimeout(function(){
+      slides[current].classList.remove('active');
+      current=0;
+      slides[current].classList.add('active');
+      updateCounter();
+      chainStarted=false;
+    },3000);
   }
 });
 
 function jumpToSlide(n){
   if(n<0||n>=total) return;
+  player.pause();
+  slides[current].classList.remove('active');
+  current=n;
+  slides[current].classList.add('active');
+  updateCounter();
+  if(current===1) animateCounters();
   if(chainStarted){
-    player.currentTime = slideStarts[n];
-  } else {
-    slides[current].classList.remove('active');
-    current=n;
-    slides[current].classList.add('active');
-    updateCounter();
-    if(current===1) animateCounters();
+    player.src='Slide '+(current+1)+'.mp3?v=1779852705';
+    player.load();
+    player.play().catch(function(e){console.warn(e);});
   }
 }
 
 document.getElementById('btnPlay').addEventListener('click',function(){
   chainStarted=true;
-  if(player.paused){
-    if(player.currentTime > 0){
-      player.play();
-    } else {
-      player.src='presentation.mp3?v='+V;
-      player.currentTime = slideStarts[current];
-      player.play().catch(function(e){console.warn(e);});
-    }
-  }
+  player.src='Slide '+(current+1)+'.mp3?v=1779852705';
+  player.load();
+  player.play().catch(function(e){console.warn(e);});
 });
 document.getElementById('btnPause').addEventListener('click',function(){
   if(player.paused) player.play(); else player.pause();
 });
 document.getElementById('btnStop').addEventListener('click',function(){
-  player.pause(); player.currentTime=0; chainStarted=false; stopWave();
+  player.pause(); player.src=''; chainStarted=false; stopWave();
   document.getElementById('btnPlay').classList.remove('active');
-  slides[current].classList.remove('active');
-  current=0; slides[current].classList.add('active'); updateCounter();
 });
 document.getElementById('nextBtn').addEventListener('click',function(){ jumpToSlide(current+1); });
 document.getElementById('prevBtn').addEventListener('click',function(){ jumpToSlide(current-1); });

@@ -358,7 +358,6 @@ let chainStarted = false;
 const bust = '1779850588';
 
 function loadAndPlay(idx) {
-  // Update visual slide first
   if(current !== idx) {
     slides[current].classList.remove('active');
     current = idx;
@@ -366,10 +365,9 @@ function loadAndPlay(idx) {
     updateCounter();
     if(current === 1) animateCounters();
   }
-  
-  player.src = 'Slide ' + (idx + 1) + '.mp3?' + bust;
-  player.load();
-  player.play().catch(function(e){ console.warn('play failed:', e); });
+  player.src = 'Slide ' + (idx + 1) + '.mp3?v=1779851392';
+  var p = player.play();
+  if(p) p.catch(function(e){ console.warn('play:', e); });
 }
 
 player.addEventListener('play', function(){

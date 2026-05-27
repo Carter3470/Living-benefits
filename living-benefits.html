@@ -109,7 +109,7 @@ span.gold{color:var(--gold-light);}span.accent{color:var(--gold);font-weight:600
 <div id="progress"></div>
 <div id="narration-bar"></div>
 
-<audio id="player" preload="auto" playsinline webkit-playsinline></audio>
+<audio id="player" preload="auto" playsinline webkit-playsinline src="presentation.mp3?v=1779853191"></audio>
 
 <div id="voice-ctrl">
   <button class="vc-btn" id="btnPlay">▶</button>
@@ -348,70 +348,81 @@ function stopWave(){
   waveSpans.forEach(function(s){s.style.height='6px';s.style.opacity='0.35';});
 }
 
-// Audio player
+// Single MP3 - slides advance via timeupdate
 var player = document.getElementById('player');
 
-player.addEventListener('play',function(){
+// Slide start times in seconds
+var slideStarts = [0, 18.52, 48.67, 75.47, 104.07, 127.19, 165.64, 189.7, 221.34, 245.21];
+
+player.addEventListener('play', function(){
   startWave();
   document.getElementById('btnPlay').classList.add('active');
 });
-player.addEventListener('pause',function(){
+player.addEventListener('pause', function(){
   stopWave();
   document.getElementById('btnPlay').classList.remove('active');
 });
-player.addEventListener('ended',function(){
+player.addEventListener('ended', function(){
   stopWave();
   document.getElementById('btnPlay').classList.remove('active');
-  if(current < total-1){
+  chainStarted = false;
+  setTimeout(function(){
     slides[current].classList.remove('active');
-    current++;
+    current = 0;
     slides[current].classList.add('active');
     updateCounter();
-    if(current===1) animateCounters();
-    // Small delay then play next - keeps gesture chain alive
-    setTimeout(function(){
-      player.src='Slide '+(current+1)+'.mp3?v=1779852705';
-      player.load();
-      player.play().catch(function(e){console.warn(e);});
-    }, 50);
-  } else {
-    setTimeout(function(){
-      slides[current].classList.remove('active');
-      current=0;
-      slides[current].classList.add('active');
-      updateCounter();
-      chainStarted=false;
-    },3000);
+  }, 3000);
+});
+player.addEventListener('timeupdate', function(){
+  if(!chainStarted) return;
+  var t = player.currentTime;
+  var newSlide = 0;
+  for(var i = slideStarts.length - 1; i >= 0; i--){
+    if(t >= slideStarts[i]){ newSlide = i; break; }
+  }
+  if(newSlide !== current){
+    slides[current].classList.remove('active');
+    current = newSlide;
+    slides[current].classList.add('active');
+    updateCounter();
+    if(current === 1) animateCounters();
   }
 });
 
 function jumpToSlide(n){
-  if(n<0||n>=total) return;
-  player.pause();
+  if(n < 0 || n >= total) return;
   slides[current].classList.remove('active');
-  current=n;
+  current = n;
   slides[current].classList.add('active');
   updateCounter();
-  if(current===1) animateCounters();
+  if(current === 1) animateCounters();
   if(chainStarted){
-    player.src='Slide '+(current+1)+'.mp3?v=1779852705';
-    player.load();
-    player.play().catch(function(e){console.warn(e);});
+    player.currentTime = slideStarts[n];
   }
 }
 
-document.getElementById('btnPlay').addEventListener('click',function(){
-  chainStarted=true;
-  player.src='Slide '+(current+1)+'.mp3?v=1779852705';
-  player.load();
-  player.play().catch(function(e){console.warn(e);});
+document.getElementById('btnPlay').addEventListener('click', function(){
+  chainStarted = true;
+  if(player.src && player.src.indexOf('presentation.mp3') > -1 && player.paused && player.currentTime > 0){
+    player.play();
+  } else {
+    player.src = 'presentation.mp3?v=1779853191';
+    player.currentTime = slideStarts[current];
+    player.play().catch(function(e){ console.warn(e); });
+  }
 });
-document.getElementById('btnPause').addEventListener('click',function(){
+document.getElementById('btnPause').addEventListener('click', function(){
   if(player.paused) player.play(); else player.pause();
 });
-document.getElementById('btnStop').addEventListener('click',function(){
-  player.pause(); player.src=''; chainStarted=false; stopWave();
+document.getElementById('btnStop').addEventListener('click', function(){
+  player.pause();
+  chainStarted = false;
+  stopWave();
   document.getElementById('btnPlay').classList.remove('active');
+  slides[current].classList.remove('active');
+  current = 0;
+  slides[current].classList.add('active');
+  updateCounter();
 });
 document.getElementById('nextBtn').addEventListener('click',function(){ jumpToSlide(current+1); });
 document.getElementById('prevBtn').addEventListener('click',function(){ jumpToSlide(current-1); });

@@ -349,96 +349,93 @@ function stopWaveAnim(){
 }
 
 // ── Audio chain ──
-const audioChain = [];
-for(let i=0;i<total;i++){
-  (function(idx){
-    const a = new Audio('Slide '+(idx+1)+'.mp3?v=1779848839');
-    a.preload = 'auto';
-    a.addEventListener('play', function(){
-      // Advance visual slide
-      if(current !== idx){
-        slides[current].classList.remove('active');
-        current = idx;
-        slides[current].classList.add('active');
-        updateCounter();
-        if(current===1) animateCounters();
-      }
-      startWaveAnim();
-      document.getElementById('btnPlay').classList.add('active');
-    });
-    a.addEventListener('pause', function(){
-      stopWaveAnim();
-      document.getElementById('btnPlay').classList.remove('active');
-    });
-    a.addEventListener('ended', function(){
-      stopWaveAnim();
-      document.getElementById('btnPlay').classList.remove('active');
-      if(idx < total-1){
-        audioChain[idx+1].play().catch(function(e){ console.warn('chain:',e); });
-      } else {
-        // Last slide finished - return to slide 1 after 3 seconds
-        setTimeout(function(){
-          chainStarted = false;
-          slides[current].classList.remove('active');
-          current = 0;
-          slides[current].classList.add('active');
-          updateCounter();
-        }, 3000);
-      }
-    });
-    audioChain.push(a);
-  })(i);
+// Single audio element - most reliable for Safari autoplay
+const player = document.createElement('audio');
+player.preload = 'auto';
+document.body.appendChild(player);
+
+let chainStarted = false;
+const bust = '1779850588';
+
+function loadAndPlay(idx) {
+  // Update visual slide first
+  if(current !== idx) {
+    slides[current].classList.remove('active');
+    current = idx;
+    slides[current].classList.add('active');
+    updateCounter();
+    if(current === 1) animateCounters();
+  }
+  
+  player.src = 'Slide ' + (idx + 1) + '.mp3?' + bust;
+  player.load();
+  player.play().catch(function(e){ console.warn('play failed:', e); });
 }
 
+player.addEventListener('play', function(){
+  startWaveAnim();
+  document.getElementById('btnPlay').classList.add('active');
+});
+player.addEventListener('pause', function(){
+  stopWaveAnim();
+  document.getElementById('btnPlay').classList.remove('active');
+});
+player.addEventListener('ended', function(){
+  stopWaveAnim();
+  document.getElementById('btnPlay').classList.remove('active');
+  if(current < total - 1) {
+    loadAndPlay(current + 1);
+  } else {
+    // Return to slide 1 after 3 seconds
+    setTimeout(function(){
+      chainStarted = false;
+      slides[current].classList.remove('active');
+      current = 0;
+      slides[current].classList.add('active');
+      updateCounter();
+    }, 3000);
+  }
+});
+
 function startNarration(){
-  audioChain.forEach(function(a){a.pause();a.currentTime=0;});
-  audioChain[current].play().catch(function(e){console.warn('play:',e);});
   chainStarted = true;
+  loadAndPlay(current);
 }
 function stopNarration(){
-  audioChain.forEach(function(a){a.pause();a.currentTime=0;});
+  player.pause();
+  player.src = '';
   chainStarted = false;
   stopWaveAnim();
   document.getElementById('btnPlay').classList.remove('active');
 }
 function pauseNarration(){
-  var a = audioChain[current];
-  if(!a) return;
-  if(a.paused) a.play(); else a.pause();
+  if(player.paused) player.play();
+  else player.pause();
 }
 function jumpToSlide(n){
-  if(n<0||n>=total) return;
-  audioChain.forEach(function(a){a.pause();a.currentTime=0;});
+  if(n < 0 || n >= total) return;
+  player.pause();
   slides[current].classList.remove('active');
-  current=n;
+  current = n;
   slides[current].classList.add('active');
   updateCounter();
-  if(current===1) animateCounters();
-  if(chainStarted) audioChain[current].play().catch(function(e){console.warn(e);});
+  if(current === 1) animateCounters();
+  if(chainStarted) loadAndPlay(current);
 }
 
 document.getElementById('btnPlay').addEventListener('click', function(){
-  audioUnlocked=true; startNarration();
+  audioUnlocked = true;
+  if(player.paused) {
+    if(player.src && player.src !== window.location.href) {
+      player.play();
+    } else {
+      startNarration();
+    }
+  }
 });
 document.getElementById('btnPause').addEventListener('click', pauseNarration);
 document.getElementById('btnStop').addEventListener('click', stopNarration);
 document.getElementById('nextBtn').addEventListener('click', function(){ jumpToSlide(current+1); });
 document.getElementById('prevBtn').addEventListener('click', function(){ jumpToSlide(current-1); });
-document.addEventListener('keydown', function(e){
-  if(e.key==='ArrowRight'||e.key===' ') jumpToSlide(current+1);
-  if(e.key==='ArrowLeft') jumpToSlide(current-1);
-});
-var tx=0;
-document.addEventListener('touchstart', function(e){tx=e.touches[0].clientX;});
-document.addEventListener('touchend', function(e){
-  var dx=e.changedTouches[0].clientX-tx;
-  if(Math.abs(dx)>50) jumpToSlide(dx<0?current+1:current-1);
-});
 
-// ── Cursor ──
-var cur=document.getElementById('cursor'), trail=document.getElementById('cursor-trail'), mx=-100, my=-100;
-document.addEventListener('mousemove', function(e){mx=e.clientX;my=e.clientY;cur.style.left=mx+'px';cur.style.top=my+'px';});
-setInterval(function(){trail.style.left=mx+'px';trail.style.top=my+'px';},60);
-</script>
-</body>
-</html>
+
